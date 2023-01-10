@@ -41,6 +41,7 @@ class modbusMonitor(IMonitor):
                            b"\x11"  # Report Slave ID
                            #b"\x04", # Send read input register instead previous?
                            )
+    read_coil = b'\x00\x00\x00\x00\x00\x06\xff\x01\x00\x00\x00\x00'
 
     @staticmethod
     def name() -> str:
@@ -59,7 +60,7 @@ class modbusMonitor(IMonitor):
     def _get_modbus_info(self, conn: ITargetConnection):
         try:
             conn.open()
-            conn.send(self.get_modbus_device_id_nse) # or get_modbus_slave_id
+            conn.send(self.read_coil) # or get_modbus_slave_id
             data = conn.recv_all(10000)
             if len(data) == 0:
                 self.logger.log_error("MODBUS error response, getting MODBUS device information Failed!!")
