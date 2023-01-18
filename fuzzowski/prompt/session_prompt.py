@@ -90,7 +90,14 @@ class SessionPrompt(CommandPrompt):
                 'desc': 'Mark test case as crash. Saving the poc in the results folder',
                 'exec': self._cmd_addcrash
             },
-
+            'fuzz-suspects': {
+                'desc': 'Fuzz all suspects',
+                'exec': self._cmd_fuzz_suspects
+            },
+            'test-suspects': {
+                'desc': 'Test all suspects',
+                'exec': self._cmd_test_suspects
+            },
         })
         return commands
 
@@ -332,7 +339,31 @@ class SessionPrompt(CommandPrompt):
             return
         except KeyError:
             self._print_error(f'Suspect with id {tokens[0]} not found')
-
+    
+    def _cmd_fuzz_suspects(self, tokens):
+        """
+        Fuzz all suspects while preserving the session state
+        :param tokens: Not used
+        :return: None
+        """
+        session_state = self.session.save_session_state()
+        for case in self.session.suspects:
+            self.session.goto(case)
+            self.session.run()
+        self.session.load_session_state(session_state)
+    
+    def _cmd_test_suspects(self, tokens):
+        """
+        Test all suspects while preserving the session state
+        :param tokens: Not used
+        :return: None
+        """
+        session_state = self.session.save_session_state()
+        for case in self.session.suspects:
+            self.session.goto(case)
+            self.session.test()
+        self.session.load_session_state(session_state)
+        
     # --------------------------------------------------------------- #
 
     def _cmd_fuzz_single_case(self, tokens):
