@@ -24,7 +24,7 @@ class modbusMonitor(IMonitor):
                                b"\x00\x00"  # Modbus TCP Protocol Identifier
                                b"\x00\x05"  # Modbus TCP Length
                                # Modbus TCP Unit Identifier
-                               + HexSlaveID +
+                               b"\x01"
                                # Discover device ID
                                b"\x2b"  # Modbus Function Code: Encapsulated Interface Transport
                                b"\x0e"  # Modbus MEI type: Read Device Identification
@@ -41,7 +41,6 @@ class modbusMonitor(IMonitor):
                            b"\x11"  # Report Slave ID
                            #b"\x04", # Send read input register instead previous?
                            )
-    read_coil = b'\x00\x00\x00\x00\x00\x06\xff\x01\x00\x00\x00\x00'
 
     @staticmethod
     def name() -> str:
@@ -58,35 +57,41 @@ class modbusMonitor(IMonitor):
 
 
     def _get_modbus_info(self, conn: ITargetConnection):
-        try:
-            conn.open()
-            conn.send(self.read_coil) # or get_modbus_slave_id
-            data = conn.recv_all(10000)
-            if len(data) == 0:
-                self.logger.log_error("MODBUS error response, getting MODBUS device information Failed!!")
-                result = False
-            else:
-                Unit_ID = data[6].to_bytes((data[6].bit_length() + 7) // 8, byteorder='big')
-                Func_code = data[7]
-                Exception_code = data[8]
-
-                if data[5] > 0 and Unit_ID == HexSlaveID:
-                    if hex(Func_code) == '0x11':
-                      self.logger.log_info(f"Getting MODBUS device information succeeded")
-                    elif hex(Exception_code) == '0xb': # more details needed? and (hex(Func_code) == '0x91' or hex(Func_code) == '0x84')
-                      self.logger.log_warn(f"Getting MODBUS device information: Gateway target device failed to respond")
-                    elif hex(Exception_code) == '0x1':
-                      self.logger.log_warn(f"Getting MODBUS device information: Illegal function")
-                    else:
-                      self.logger.log_warn(f"Getting MODBUS device information warning code: {hex(Exception_code)}")
+        result = False
+        tries = 0
+        while(result == False and tries < 3):
+            try:
+                conn.open()
+                self.logger.log_info(f'Sending: {self.get_modbus_device_id_nse}')
+                conn.send(self.get_modbus_device_id_nse) # or get_modbus_slave_id
+                data = conn.recv_all(10000)
+                self.logger.log_info(f'Received: {data}')
+                if len(data) == 0:
+                    self.logger.log_error(f"MODBUS error response, getting MODBUS device information Failed!!")
+                    result = False
                 else:
-                  self.logger.log_warn(f"Getting MODBUS data error")
+                    Unit_ID = data[6].to_bytes((data[6].bit_length() + 7) // 8, byteorder='big')
+                    Func_code = data[7]
+                    Exception_code = data[8]
 
-                result = True
-        except Exception as e:
-            self.logger.log_error(f"MODBUS response error, getting MODBUS device information Failed!! Exception while receiving: {type(e).__name__}. {str(e)}")
-            result = False
-        finally:
-            conn.close()
+                    if data[5] > 0 and Unit_ID == HexSlaveID:
+                        if hex(Func_code) == '0x11':
+                            self.logger.log_info(f"Getting MODBUS device information succeeded")
+                        elif hex(Exception_code) == '0xb': # more details needed? and (hex(Func_code) == '0x91' or hex(Func_code) == '0x84')
+                            self.logger.log_warn(f"Getting MODBUS device information: Gateway target device failed to respond")
+                        elif hex(Exception_code) == '0x1':
+                            self.logger.log_warn(f"Getting MODBUS device information: Illegal function")
+                        else:
+                            self.logger.log_warn(f"Getting MODBUS device information warning")
+                    else:
+                        self.logger.log_warn(f"Getting MODBUS data error")
+
+                    result = True
+            except Exception as e:
+                self.logger.log_error(f"MODBUS response error, getting MODBUS device information Failed!! Exception while receiving: {type(e).__name__}. {str(e)}")
+                result = False
+            finally:
+                conn.close()
+                tries += 1
 
         return result
