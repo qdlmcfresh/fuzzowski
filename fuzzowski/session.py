@@ -466,22 +466,27 @@ class Session(object):
             request_crashes = {}
             mutant_crashes = {}
             # TODO: REQUEST WILL HAVE CHANGED WHEN CALLED THIS. FIX
+            # TODO: Fix this for saved sessions
+            print(self.suspects)
             for suspect in self.suspects.values():
-                if suspect is not None:
+                if isinstance(suspect, TestCase):
                     request_name = suspect.request_name
+                    mutant_name = suspect.mutant_name
+                elif isinstance(suspect, Dict):
+                    request_name = suspect['path'].replace('[', '').replace(']', '')
+                    mutant_name = suspect['mutant']
                     request_crashes[request_name] = request_crashes.get(request_name, 0) + 1
                     if request_crashes[request_name] >= self.opts.crash_threshold_request:
                         # Disable request! :o
                         self.logger.log_fail(f'Crash threshold reached for request {request_name}. Disabling it')
                         self.disable_by_path_name(request_name)
-
-                    mutant_name = suspect.mutant_name
                     mutant_crashes[mutant_name] = mutant_crashes.get(mutant_name, 0) + 1
                     if mutant_crashes[mutant_name] >= self.opts.crash_threshold_element:
                         # Disable mutant! :o
                         self.logger.log_fail(f'Crash threshold reached for mutant {request_name}.{mutant_name}. '
                                               f'Disabling it')
                         self.disable_by_path_name(f'{request_name}.{mutant_name}')
+
 
     def add_last_case_as_suspect(self, error: Exception):
         """
