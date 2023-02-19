@@ -22,7 +22,10 @@ class ModbusResponse(Response):
         super().__init__(name, required_vars, optional_vars)
 
     def _extract_variables(self, data):
-        trans_id, proto_id, length, unit_id, function_code = struct.unpack('>HHHBB', data[:8])
+        try:
+            trans_id, proto_id, length, unit_id, function_code = struct.unpack('>HHHBB', data[:8])
+        except Exception as e:
+            return {}
         response_vars = {
             'trans_id': trans_id,
             'proto_id': proto_id,
@@ -32,7 +35,10 @@ class ModbusResponse(Response):
         }
         # Check if error bit is set
         if function_code & 0x80 == 0x80:
-            response_vars['error_code'] = data[8]
+            try:
+                response_vars['error_code'] = data[8]
+            except Exception as e:
+                response_vars['error_code'] = 'Could not parse error code'
             return response_vars
         else:
             response_vars['data'] = data[8:]
@@ -51,6 +57,9 @@ class ModbusResponse(Response):
         """
         if vars_set.get('error_code') is not None:
             return f'Error code: {vars_set.get("error_code")}' + " - " + self.ERROR_CODES.get(vars_set.get('error_code'), "Unknown error code")
-        else:
+        elif len(vars_set) > 0:
             return '\n' + pprint.pformat(vars_set) + '\n'
+        else:
+            return 'Could not parse response'
+
         
